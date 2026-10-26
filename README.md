@@ -32,9 +32,9 @@ begin a manual search.
 
 ![An input dialog titled "New Search" with the text "Frankenstein Mary Shelley". Behind the dialog, a recent book search result dialog appears with two books](https://github.com/user-attachments/assets/73619448-9821-410a-901f-d8fc61185dd3)
 
-Selecting a Hardcover book or edition will link it to your current document, but will not automatically update your
-reading status on Hardcover. This can be done manually from the [update status](#updating-reading-status) menu, or using
-the [track progress](#automatically-track-progress) option.
+Selecting a Hardcover book or edition links it to the current document.
+With progress tracking enabled, the plugin adds a missing library entry as Currently Reading.
+Existing library entries keep their status, edition, privacy and reading history until you change their status.
 
 To clear the currently linked book, tap and hold to the `Linked book` menu item for a moment.
 
@@ -81,6 +81,16 @@ page and status updates will automatically be sent to Hardcover for some reading
   checked
   ten seconds later, and if the book has been marked finished, it will be marked as finish in Hardcover.
 
+The plugin saves pending status and progress updates in `settings/hardcoversync_settings.lua`.
+Updates survive document changes, sleep and application restarts.
+When Wi-Fi connects, the plugin sends pending updates for open and closed documents.
+The plugin also retries pending updates on startup and resume.
+Failed requests remain pending. Automatic progress updates never decrease the page saved on Hardcover.
+
+Opening a book does not change an existing Want to Read, Read or Did Not Finish entry.
+To start or restart that book, select Currently Reading from the Update status menu.
+Highlights and notes remain manual.
+
 For all documents, but in particular for reflowable documents (like epubs), the current page in your reader may not
 match that of the original published book.
 
@@ -120,8 +130,8 @@ when a new document is opened, if no book has been linked already. These options
   the book)
   or a `hardcover-edition` with an edition ID, try to find the matching book or edition.
   (see: [RobBrazier/calibre-plugins](https://github.com/RobBrazier/calibre-plugins/tree/main/plugins/hardcover))
-* **Automatically link by title**: If the document metadata contains a title, choose the first book returned from
-  hardcover search results for that title and document author (if available).
+* **Automatically link by title**: Choose a unique book with the same title and an author from the document metadata.
+  If the match is missing or ambiguous, use `Link book` to select the correct Hardcover book.
 
 ### Track progress settings
 
@@ -137,7 +147,8 @@ When always track progress is enabled, new documents will have the [track progre
 option enabled automatically. You can still turn off `Track progress` on a per-document basis when this setting is
 enabled.
 
-Books still must be linked (manually or automatically) to send updates to Hardcover.
+Books must match a Hardcover catalog record before the plugin can send updates.
+When offline, the plugin saves the document metadata and tries to match the book after Wi-Fi connects.
 
 ### Enable wifi on demand
 

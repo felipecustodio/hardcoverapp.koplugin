@@ -22,7 +22,8 @@ local headers = {
 }
 
 local HardcoverApi = {
-  enabled = true
+  enabled = true,
+  credential_id = require("ffi/sha2").sha256(config.token),
 }
 
 local book_fragment = [[
@@ -100,37 +101,38 @@ end
 
 function HardcoverApi:query(query, parameters)
   if not NetworkManager:isConnected() or not self.enabled then
-    return
+    return nil, { completed = false }
   end
 
-  local completed, success, content
-
-  completed, content = Trapper:dismissableRunInSubprocess(function()
+  local completed, content = Trapper:dismissableRunInSubprocess(function()
     return self:_query(query, parameters)
   end, true, true)
 
-  if completed and content then
-    local code, response = string.match(content, "^([^:]*):(.*)")
-    if string.find(code, "^%d%d%d") then
-      local data = json.decode(response, json.decode.simple)
-      if data.data then
-        return data.data
-      elseif data.errors or data.error then
-        local err = data.errors or { data.error }
-        if self.on_error then
-          for _, e in ipairs(err) do
-            self.on_error(e)
-          end
-        end
-
-        return nil, { errors = err }
-      end
-    else
-      return nil, { completed = false }
-    end
-  else
-    return nil, { completed = completed }
+  if not completed or not content then
+    return nil, { completed = false }
   end
+  local code, response = string.match(content, "^([^:]*):(.*)")
+  code = tonumber(code)
+  if not code then
+    return nil, { completed = false }
+  end
+  local decoded, data = pcall(json.decode, response, json.decode.simple)
+  if not decoded or type(data) ~= "table" then
+    return nil, { completed = false, status = code }
+  end
+  if data.errors or data.error then
+    local errors = data.errors or { data.error }
+    if self.on_error then
+      for _, err in ipairs(errors) do
+        self.on_error(err)
+      end
+    end
+    return nil, { errors = errors, status = code }
+  end
+  if code < 200 or code > 299 or not data.data then
+    return nil, { completed = false, status = code }
+  end
+  return data.data
 end
 
 function HardcoverApi:_query(query, parameters)
@@ -213,13 +215,13 @@ end
 
 function HardcoverApi:hydrateBookFromEdition(edition_id, user_id)
   local editionSearch = [[
-    query ($id Int!, $userId: Int!) {
+    query ($id: Int!, $userId: Int!) {
       editions(where: { id: { _eq: $id }}) {
         ...EditionParts
       }
     }]] .. edition_fragment
 
-  local editions = self:query(editionSearch, { id = edition_id, userId = user_id })
+  local editions = self:query(editionSearch, { id = tonumber(edition_id), userId = user_id })
   if editions and editions.editions and #editions.editions > 0 then
     return self:normalizedEdition(editions.editions[1])
   end
@@ -438,7 +440,7 @@ function HardcoverApi:findUserBook(book_id, user_id)
 
   local results, err = self:query(read_query, { id = book_id, userId = user_id })
   if not results or not results.user_books then
-    return {}, err
+    return nil, err or { completed = false }
   end
 
   return results.user_books[1]
@@ -555,7 +557,8 @@ function HardcoverApi:createRead(user_book_id, edition_id, page, started_at)
   ]]
 
   local result = self:query(query, { id = user_book_id, pages = page, editionId = edition_id, startedAt = started_at })
-  if result and result.update_user_book_read then
+  if result and result.insert_user_book_read and not result.insert_user_book_read.error
+      and result.insert_user_book_read.user_book_read then
     local user_book_read = result.insert_user_book_read.user_book_read
     return self:normalizeUserBookRead(user_book_read)
   end
@@ -590,7 +593,8 @@ function HardcoverApi:updatePage(user_read_id, edition_id, page, started_at)
   ]]
 
   local result = self:query(query, { id = user_read_id, pages = page, editionId = edition_id, startedAt = started_at })
-  if result and result.update_user_book_read then
+  if result and result.update_user_book_read and not result.update_user_book_read.error
+      and result.update_user_book_read.user_book_read then
     return self:normalizeUserBookRead(result.update_user_book_read.user_book_read)
   end
 end
@@ -598,7 +602,10 @@ end
 function HardcoverApi:updateUserBook(book_id, status_id, privacy_setting_id, edition_id)
   if not privacy_setting_id then
     local me = self:me()
-    privacy_setting_id = me.account_privacy_setting_id or 1
+    privacy_setting_id = me.account_privacy_setting_id
+    if not privacy_setting_id then
+      return
+    end
   end
 
   local query = [[
@@ -620,7 +627,7 @@ function HardcoverApi:updateUserBook(book_id, status_id, privacy_setting_id, edi
   }
 
   local result = self:query(query, { object = update_args })
-  if result and result.insert_user_book then
+  if result and result.insert_user_book and not result.insert_user_book.error then
     return result.insert_user_book.user_book
   end
 end

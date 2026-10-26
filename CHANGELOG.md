@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+* Add missing Hardcover library entries when progress tracking starts.
+* Save pending status and progress updates across document changes, sleep and application restarts.
+* Send pending updates when Wi-Fi connects, including updates for closed documents.
+* Require a unique title and author match for automatic title linking.
+
+### Fixes
+
+* Capture progress through KOReader's CloseDocument event.
+* Capture status changes from the file browser.
+* Retain updates after failed API requests without replacing existing privacy or reading history.
+* Correct edition lookup queries and reading session creation responses.
+
 ## 0.4.0 (2026-04-26)
 
 ### Added

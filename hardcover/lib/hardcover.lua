@@ -187,74 +187,65 @@ function Hardcover:autolinkBook(book)
   end
 end
 
-function Hardcover:linkBookByIsbn(identifiers)
-  if identifiers.isbn_10 or identifiers.isbn_13 then
-    local user_id = User:getId()
-    local book_lookup = Api:findBookByIdentifiers({
-      isbn_10 = identifiers.isbn_10,
-      isbn_13 = identifiers.isbn_13
-    },
-      user_id
-    )
-    if book_lookup then
-      self:autolinkBook(book_lookup)
-      return true
-    end
-  end
+local function matchText(text)
+  return (text or ""):lower():gsub("%d+", function(number)
+    return tostring(tonumber(number))
+  end):gsub("[%p%s]", "")
 end
 
-function Hardcover:linkBookByHardcover(identifiers)
-  if identifiers.book_slug or identifiers.edition_id then
-    local user_id = User:getId()
-    local book_lookup = Api:findBookByIdentifiers(
-      { book_slug = identifiers.book_slug, edition_id = identifiers.edition_id }, user_id)
-    if book_lookup then
-      self:autolinkBook(book_lookup)
-      return true
+function Hardcover:findAutomaticBook(props, user_id)
+  user_id = user_id or User:getId()
+  local identifiers = Book:parseIdentifiers(props.identifiers)
+  if not self.settings:readSetting(SETTING.LINK_BY_HARDCOVER) then
+    identifiers.book_slug = nil
+    identifiers.edition_id = nil
+  end
+  if not self.settings:readSetting(SETTING.LINK_BY_ISBN) then
+    identifiers.isbn_10 = nil
+    identifiers.isbn_13 = nil
+  end
+  local book = Api:findBookByIdentifiers(identifiers, user_id)
+  if book then
+    return book
+  end
+  if not props.title or not props.authors or not self.settings:readSetting(SETTING.LINK_BY_TITLE) then
+    return
+  end
+  local results, err = Api:findBooks(props.title, props.authors, user_id)
+  if not results then
+    return nil, err
+  end
+  local match
+  for _, candidate in ipairs(results) do
+    if matchText(candidate.title) == matchText(props.title) then
+      for _, contribution in ipairs(candidate.contributions or {}) do
+        local author = contribution.author and contribution.author.name
+        for name in props.authors:gmatch("[^;\n]+") do
+          if author and matchText(author) == matchText(name) then
+            if match and match.book_id ~= candidate.book_id then
+              return nil, "Several Hardcover books match; use Link book"
+            end
+            match = candidate
+          end
+        end
+      end
     end
   end
-end
-
-function Hardcover:linkBookByTitle()
-  local props = self.ui.document:getProps()
-
-  local results = Api:findBooks(props.title, props.authors, User:getId())
-  if results and #results > 0 then
-    self:autolinkBook(results[1])
-    return true
-  end
+  return match
 end
 
 function Hardcover:tryAutolink()
-  if self.settings:bookLinked() then
+  if not self.ui.document or self.settings:bookLinked() then
     return
   end
-
-  local props = self.ui.document:getProps()
-
-  local identifiers = Book:parseIdentifiers(props.identifiers)
-  if ((identifiers.isbn_10 or identifiers.isbn_13) and self.settings:readSetting(SETTING.LINK_BY_ISBN))
-    or ((identifiers.book_slug or identifiers.edition_id) and self.settings:readSetting(SETTING.LINK_BY_HARDCOVER))
-    or (props.title and self.settings:readSetting(SETTING.LINK_BY_TITLE)) then
-    self.wifi:withWifi(function()
-      self:_runAutolink(identifiers)
-    end)
-  end
-end
-
-function Hardcover:_runAutolink(identifiers)
-  local linked = false
-  if self.settings:readSetting(SETTING.LINK_BY_ISBN) then
-    linked = self:linkBookByIsbn(identifiers)
-  end
-
-  if not linked and self.settings:readSetting(SETTING.LINK_BY_HARDCOVER) then
-    linked = self:linkBookByHardcover(identifiers)
-  end
-
-  if not linked and self.settings:readSetting(SETTING.LINK_BY_TITLE) then
-    self:linkBookByTitle()
-  end
+  local document = self.ui.document
+  local props = document:getProps()
+  self.wifi:withWifi(function()
+    local book = self:findAutomaticBook(props)
+    if self.ui.document == document then
+      self:autolinkBook(book)
+    end
+  end)
 end
 
 return Hardcover

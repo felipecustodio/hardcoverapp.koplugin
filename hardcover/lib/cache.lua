@@ -9,16 +9,18 @@ function Cache:new(o)
 end
 
 function Cache:updateBookStatus(filename, status, privacy_setting_id)
-  local settings = self.settings:readBookSettings(filename)
-  local book_id = settings.book_id
-  local edition_id = settings.edition_id
-
-  self.state.book_status = Api:updateUserBook(book_id, status, privacy_setting_id, edition_id) or {}
+  self.sync:enqueue(filename, {
+    status_id = status,
+    privacy_setting_id = privacy_setting_id,
+  })
+  self.request_sync()
 end
 
 function Cache:cacheUserBook()
   local status, errors = Api:findUserBook(self.settings:getLinkedBookId(), User:getId())
-  self.state.book_status = status or {}
+  if not errors then
+    self.state.book_status = status or {}
+  end
 
   return errors
 end
