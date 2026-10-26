@@ -4,7 +4,7 @@ local ltn12 = require("ltn12")
 
 local VERSION = require("hardcover_version")
 
-local RELEASE_API = "https://api.github.com/repos/billiam/hardcoverapp.koplugin/releases?per_page=1"
+local RELEASE_API = "https://api.github.com/repos/felipecustodio/hardcoverapp.koplugin/releases?per_page=1"
 
 local Github = {}
 

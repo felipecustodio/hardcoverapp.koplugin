@@ -16,7 +16,7 @@ local api_url = "https://api.hardcover.app/v1/graphql"
 
 local headers = {
   ["Content-Type"] = "application/json",
-  ["User-Agent"] = T("hardcoverapp.koplugin/%1 (https://github.com/billiam/hardcoverapp.koplugin)",
+  ["User-Agent"] = T("hardcoverapp.koplugin/%1 (https://github.com/felipecustodio/hardcoverapp.koplugin)",
     table.concat(VERSION, ".")),
   Authorization = "Bearer " .. config.token
 }

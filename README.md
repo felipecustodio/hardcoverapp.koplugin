@@ -2,9 +2,13 @@
 
 A KOReader plugin to update your [Hardcover.app](https://hardcover.app) reading status
 
+This fork adds automatic library enrollment and offline synchronization.
+The original plugin is [Billiam/hardcoverapp.koplugin](https://github.com/Billiam/hardcoverapp.koplugin).
+
 ## Installation
 
-1. Download and extract the latest release: https://github.com/Billiam/hardcoverapp.koplugin/releases/latest
+1. Download and extract the [source archive](https://github.com/felipecustodio/hardcoverapp.koplugin/archive/refs/heads/main.zip).
+   Rename the extracted folder to `hardcoverapp.koplugin`.
 2. Rename `hardcover_config.example.lua` to `hardcover_config.lua`
 3. Fetch your API key from https://hardcover.app/account/api (just the part after `Bearer `)
 4. Add your API key to the `token` field in `hardcover_config.lua`, between the `''` quotes. For example:
